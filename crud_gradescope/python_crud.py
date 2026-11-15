@@ -2,8 +2,11 @@
 -- Name: Carl Curran
 -- Citation for the following code: (Explain degree of originality, e.g. "Code provided from CS340 @ OSU", and a summary of the prompts submitted to the AI tool. If original, just say "Original work, no AI tools were used.")
 
+--Original work, no AI tools were used.
+
 -- Your code goes below here
 """
+
 
 import mysql.connector
 
@@ -28,37 +31,35 @@ class CertPersonQueries(object):
         Default is byc. *Orderby.
         """
 
-        
-        # TODO: check mode (byp or byc)
+        # check mode (byp or byc)
         if mode == "byp":
             mode_select = "byp" 
         else:
             mode_select = "byc"
 
-        # TODO: write and execute JOIN query for byp
-
+        # write and execute JOIN query for byp
         if mode_select == "byp":
-            query = """
-                SELECT bsg_people.fname, bsg_people.lname, bsg_cert.title
+            sql = """
+                SELECT bsg_people.fname, bsg_people.lname, bsg_cert.title AS 'cert title'
                 FROM bsg_people
                 JOIN bsg_cert_people ON bsg_people.id = bsg_cert_people.pid
-                JOIN bsg_certs ON bsg_cert_people.cid = bsg_certs.id
-                GROUPBY bsg_people.fname
+                JOIN bsg_cert ON bsg_cert_people.cid = bsg_cert.id
                 ORDER BY bsg_people.fname;
             """
-        # TODO: write and execute JOIN query for byc
+
+        # write and execute JOIN query for byc
         else:
-            query = """
-                SELECT bsg_certs.cert, bsg_people.fname, bsg_people.lname
+            sql = """
+                SELECT bsg_cert.title AS 'cert title', bsg_people.fname, bsg_people.lname
                 FROM bsg_people
                 JOIN bsg_cert_people ON bsg_people.id = bsg_cert_people.pid
-                JOIN bsg_certs ON bsg_cert_people.cid = bsg_certs.id
-                GROUPBY bsg_certs.title
-                ORDER BY bsg_certs.cert;
+                JOIN bsg_cert ON bsg_cert_people.cid = bsg_cert.id
+                ORDER BY bsg_cert.title;
             """
-        # TODO: return results
 
-        pass
+        # return results
+        self.cursor.execute(sql)
+        return self.cursor.fetchall()
 
     def cnt_cert_person(self, mode="byc"):
         """
@@ -66,27 +67,80 @@ class CertPersonQueries(object):
         Or count people grouped by certificate (byc) -output *cert, count
         Default is byc. *Orderby.
         """
-        # TODO: if mode == "byp", GROUP BY person
-        # TODO: else, GROUP BY cert
-        # TODO: execute and return results
+        # GROUP BY person
+        if mode == 'byp':
+            sql = """
+                SELECT bsg_people.fname, bsg_people.lname, COUNT(bsg_cert.title) AS count
+                FROM bsg_people
+                LEFT JOIN bsg_cert_people ON bsg_people.id = bsg_cert_people.pid
+                LEFT JOIN bsg_cert ON bsg_cert_people.cid = bsg_cert.id
+                GROUP BY bsg_people.id
+                ORDER BY bsg_people.fname;
+            """
+        # GROUP BY cert
+        else:
+            sql = """
+                SELECT bsg_cert.title, COUNT(bsg_cert.title) AS count
+                FROM bsg_people
+                JOIN bsg_cert_people ON bsg_people.id = bsg_cert_people.pid
+                JOIN bsg_cert ON bsg_cert_people.cid = bsg_cert.id
+                GROUP BY bsg_cert.title
+                ORDER BY bsg_cert.title;
+            """
+
+        # execute and return results
+        self.cursor.execute(sql)
+        return self.cursor.fetchall()
         
     def add_cert_person(self, c=None, p=None):
         """Insert cert-person pair into bsg_cert_people."""
+
         # TODO: INSERT INTO bsg_cert_people (cid, pid)
-        # TODO: handle mysql.connector.Error duplicate (errno 1062)
+        sql = """
+            INSERT INTO bsg_cert_people (cid, pid)
+            VALUES (%s, %s);
+            """
+
+        # handle mysql.connector.Error duplicate (errno 1062)
+        try:
+            self.cursor.execute(sql, (c, p))
+            return self.cursor.rowcount
+        except mysql.connector.Error as err:
+            if err.errno == 1062:
+                return err.msg
+            raise
+
         # TODO: commit and return rowcount or duplicate error text
-        pass
 
     def update_cert(self, c=None, p=None):
         """
         Update the cert assignment for a given person.
         """
-        # TODO: UPDATE bsg_cert_people SET cid=%s WHERE ...
-        # TODO: commit and return rowcount
-        pass
+
+        # UPDATE bsg_cert_people SET cid=%s WHERE ...
+        sql = """
+            UPDATE bsg_cert_people
+            SET cid = %s WHERE pid = %s;
+            """
+        try:
+            self.cursor.execute(sql, (c, p))
+
+        # commit and return rowcount
+            self._commit()
+            return self.cursor.rowcount
+        except mysql.connector.Error as err:
+            if err.errno == 1062:
+                return err.msg
+            raise
 
     def delete_cert(self, c=None, p=None):
         """Delete one cert-person relationship."""
         # TODO: DELETE FROM bsg_cert_people WHERE cid=%s AND pid=%s
+        sql = """
+            DELETE FROM bsg_cert_people WHERE cid=%s AND pid=%s;
+            """
         # TODO: commit and return rowcount
-        pass
+        self.cursor.execute(sql, (c, p))
+        self._commit()
+        return self.cursor.rowcount
+        

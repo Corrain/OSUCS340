@@ -6,7 +6,7 @@ conn = mysql.connector.connect(
     host='localhost',
     user='root',
     password='',
-    database='bsg_db'
+    database='cs340_curracar'
 )
 cursor = conn.cursor()
 
